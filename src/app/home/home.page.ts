@@ -207,12 +207,12 @@ export class HomePage implements OnInit {
       this.eventos[eventoIndex] = { id, titulo, descripcion, fecha: fechaStr, hora, lugar, imagen };
       console.log('evento actualizado');
       console.log(JSON.stringify(this.eventos[eventoIndex]));
-      this.refreshEvents(); // Actualizar la lista de eventos seleccionados y los resultados de la búsqueda
+      this.refreshEvents();
       if (this.selectedDate === fechaStr) {
         this.syncSelectedDateEvents();
       }
-      this.updateResults(); // Refrescar la vista
-      this.loadHighlightedDates(); // Refrescar las fechas destacadas en el calendario
+      this.updateResults();
+      this.loadHighlightedDates();
     } else {
       console.error(`Evento con id ${id} no encontrado.`);
     }
