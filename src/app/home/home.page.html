@@ -1,20 +1,234 @@
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calendario de Eventos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300&family=Sacramento&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
+</head>
+
 <ion-header [translucent]="true">
   <ion-toolbar>
     <ion-title>
-      Blank
+      Calendario de Eventos :D
     </ion-title>
+    <ion-icon class="custom-icon" name="{{icon}}" slot="end"></ion-icon>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Blank</ion-title>
-    </ion-toolbar>
-  </ion-header>
-
-  <div id="container">
-    <strong>Ready to create an app?</strong>
-    <p>Start with Ionic <a target="_blank" rel="noopener noreferrer" href="https://ionicframework.com/docs/components">UI Components</a></p>
+  <div class="container">
+    <ion-datetime presentation="date" [highlightedDates]="highlightedDates" [disabled]="!isConnected"
+      (ionChange)="onDateClick($event)" [value]="currentDate">
+    </ion-datetime>
   </div>
+
+  <!-- Lista de eventos próximos -->
+  <div class="upcoming-events" *ngIf="isConnected">
+    <h2>Próximos Eventos</h2>
+    <ion-list>
+      <ion-item *ngFor="let evento of getUpcomingEvents()">
+        <ion-label>
+          <h2>{{ evento.titulo }}</h2>
+          <p>{{ evento.fecha }} - {{ evento.hora }}</p>
+          <p>{{ evento.descripcion }}</p>
+        </ion-label>
+      </ion-item>
+    </ion-list>
+  </div>
+
+
+  <!-- boton para agregar evento -->
+  <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+    <ion-fab-button (click)="setOpenModalAddEvent(true)" [disabled]="!isConnected">
+      <ion-icon name="add"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+
+  <!-- modal para agregar evento -->
+  <ion-modal [isOpen]="isModalAddEventOpen" swipeToClose="false">
+    <ng-template>
+      <ion-content style="--background: #be4c54;">
+        <div style="margin-top: 2px; margin-right: 10px; margin-bottom: 0; display: flex; justify-content: flex-end;">
+          <ion-button class="btnCerrar" (click)="setOpenModalAddEvent(false)">
+            <ion-icon name="close-outline"></ion-icon>
+          </ion-button>
+        </div>
+        <div style="margin: 0 20px;">
+          <h1 style="text-align: center; color: #fff4e3; font-size: 40px; margin-top: 0; margin-bottom: 20px;">Nuevo
+            evento</h1>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 20px;">
+
+            <ion-item style="grid-column: span 2;">
+              <ion-input label="Título:" [(ngModel)]="newTitulo"></ion-input>
+            </ion-item>
+
+            <ion-item style="grid-column: span 2;">
+              <ion-input label="Descripción:" [(ngModel)]="newDescripcion"></ion-input>
+            </ion-item>
+
+            <ion-item class="span-2">
+              <div style="display: flex; align-items: flex-start;">
+                <ion-datetime-button datetime="datetime" class="btnFecha"></ion-datetime-button>
+                <ion-modal [keepContentsMounted]="true">
+                  <ng-template>
+                    <ion-datetime id="datetime" presentation="date" [(ngModel)]="newFecha"></ion-datetime>
+                  </ng-template>
+                </ion-modal>
+              </div>
+            </ion-item>
+
+            <ion-item class="span-2">
+              <div style="display: flex; align-items: center;">
+                <ion-datetime-button datetime="reloj" class="btnHora"></ion-datetime-button>
+                <ion-modal [keepContentsMounted]="true">
+                  <ng-template>
+                    <ion-datetime id="reloj" presentation="time" [(ngModel)]="newHora"></ion-datetime>
+                  </ng-template>
+                </ion-modal>
+              </div>
+            </ion-item>
+
+            <ion-item style="grid-column: span 2;">
+              <ion-input label="Lugar:" [(ngModel)]="newLugar"></ion-input>
+            </ion-item>
+
+            <ion-item style="grid-column: span 2;">
+              <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
+                <ion-button expand="block" (click)="tomarFoto()" class="btnImagen">Subir imagen</ion-button>
+              </div>
+            </ion-item>
+
+          </div>
+          <div style="display: flex; justify-content: center; align-items: center;">
+            <ion-button class="btnGuardar" (click)="addEvento()"> Guardar Evento
+            </ion-button>
+          </div>
+        </div>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+
+  <!-- modal para ver eventos del dia seleccionado -->
+  <ion-modal [isOpen]="isModalEventosOpen" swipeToClose="false">
+    <ng-template>
+      <ion-content style="--background: #be4c54;">
+        <div style="margin-top: 2px; margin-right: 10px; margin-bottom: 0; display: flex; justify-content: flex-end;">
+          <ion-button class="btnCerrar" (click)="setOpenModalEventos(false)">
+            <ion-icon name="close-outline"></ion-icon>
+          </ion-button>
+        </div>
+        <div style="margin: 30px 40px;">
+          <h1 style="font-size: 40px; margin: 0; font-weight: bold; color: #fff4e3;">{{ selectedDay }}</h1>
+          <h1 style="font-size: 40px; margin: 0; font-weight: bold; color: #fff4e3;">{{ selectedDate }}</h1>
+          <h2 style="color: #fff4e3;">Eventos del día</h2>
+          <div style="display: flex; margin-top: 10px;">
+            <div style="width: 280px; margin: 0;">
+              <ion-searchbar [debounce]="1000" (ionInput)="handleInput($event)"
+                placeholder="Buscar evento"></ion-searchbar>
+            </div>
+            <!-- boton para agregar nuevo evento con la fecha de ese dia -->
+            <!-- <ion-button class="agregarBoton" (click)="addEventoOnDate()">
+              <ion-icon name="add-outline"></ion-icon>
+            </ion-button> -->
+          </div>
+
+          <div class="card-container-container">
+            <div class="card-container">
+              <ion-card *ngFor="let result of results">
+                <ion-img [src]="result.imagen" alt="{{ result.titulo }}"></ion-img>
+                <ion-card-header>
+                  <ion-card-title>{{ result.titulo }}</ion-card-title>
+                  <!-- boton para editar -->
+                  <ion-button class="btntareaeditar" (click)="openUpdateModal(result)" color="warning">
+                    <ion-icon name="create-outline"></ion-icon>
+                  </ion-button>
+                  <!-- boton para eliminar -->
+                  <ion-button class="btntareaeliminar" (click)="deleteEvento(result.id)" color="danger">
+                    <ion-icon name="trash-outline"></ion-icon>
+                  </ion-button>
+                  <!-- boton para compartir -->
+                  <ion-button class="btnCompartir" (click)="compartir(result)">
+                    <ion-icon name="share-outline"></ion-icon>
+                  </ion-button>
+                </ion-card-header>
+                <ion-card-content>
+                  <p><strong>Lugar:</strong> {{ result.lugar }}</p>
+                  <p><strong>Hora:</strong> {{ result.hora }}</p>
+                  <p><strong>Fecha:</strong> {{ result.fecha }}</p>
+                  <p><strong>Descripción:</strong> {{ result.descripcion }}</p> <!-- Agregar la descripción -->
+                </ion-card-content>
+              </ion-card>
+            </div>
+          </div>
+        </div>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+
+  <!-- modal para modificar -->
+  <!-- modal para modificar -->
+  <ion-modal [isOpen]="isModalUpdateEvento" swipeToClose="false">
+    <ng-template>
+      <ion-content style="--background: #be4c54;">
+        <div style="margin-top: 2px; margin-right: 10px; margin-bottom: 0; display: flex; justify-content: flex-end;">
+          <ion-button class="btnCerrar" (click)="setOpenModalUpdateEvent(false)">
+            <ion-icon name="close-outline"></ion-icon>
+          </ion-button>
+        </div>
+        <div style="margin: 0 20px;">
+          <h1 style="text-align: center; color: #fff4e3; font-size: 40px; margin-top: 0; margin-bottom: 20px;">Evento a
+            modificar</h1>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 20px;">
+
+            <ion-item style="grid-column: span 2;">
+              <ion-input label="Título:" [(ngModel)]="newTitulo"></ion-input>
+            </ion-item>
+
+            <ion-item style="grid-column: span 2;">
+              <ion-input label="Descripción:" [(ngModel)]="newDescripcion"></ion-input>
+            </ion-item>
+
+            <ion-item class="span-2">
+              <div style="display: flex; align-items: flex-start;">
+                <ion-datetime-button datetime="datetime" class="btnFecha"></ion-datetime-button>
+                <ion-modal [keepContentsMounted]="true">
+                  <ng-template>
+                    <ion-datetime id="datetime" presentation="date" [(ngModel)]="newFecha"></ion-datetime>
+                  </ng-template>
+                </ion-modal>
+              </div>
+            </ion-item>
+
+            <ion-item class="span-2">
+              <div style="display: flex; align-items: center;">
+                <ion-datetime-button datetime="reloj" class="btnHora"></ion-datetime-button>
+                <ion-modal [keepContentsMounted]="true">
+                  <ng-template>
+                    <ion-datetime id="reloj" presentation="time" [(ngModel)]="newHora"></ion-datetime>
+                  </ng-template>
+                </ion-modal>
+              </div>
+            </ion-item>
+
+            <ion-item style="grid-column: span 2;">
+              <ion-input label="Lugar:" [(ngModel)]="newLugar"></ion-input>
+            </ion-item>
+
+            <ion-item style="grid-column: span 2;">
+              <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
+                <ion-button expand="block" (click)="tomarFoto()" class="btnImagen">Subir imagen</ion-button>
+              </div>
+            </ion-item>
+
+          </div>
+          <div style="display: flex; justify-content: center; align-items: center;">
+            <ion-button class="btnGuardar" (click)="addEvento()"> Guardar Evento
+            </ion-button>
+          </div>
+        </div>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
 </ion-content>
